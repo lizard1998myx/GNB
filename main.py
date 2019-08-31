@@ -106,6 +106,8 @@ class NotificationQueue(list):
         self.broadcast(self._keylist, self._model)
 
     def show(self):
+        if len(self) == 0:
+            print("队列为空")
         for i in range(len(self)):
             print(self[i].getmessage(keylist=['category', 'source', 'time'],
                                      model=[str(i).ljust(3)+'-[' , ']', '|']))
@@ -113,7 +115,7 @@ class NotificationQueue(list):
     def editor(self):
         self.show()
         while True:
-            index = input('输入你想修改的通知的数字编号： ')
+            index = input('输入你想修改的通知的数字编号/不修改： ')
             if index == "":
                 break
             elif index.isdigit():
@@ -139,9 +141,11 @@ class NotificationQueue(list):
                 loadfile.read()
 
     def info(self):
-        version = "GNB_V1.0.1_20190831"
+        version = "GNB_V1.0.3_20190901"
         description = """Full name: Group Notification Broadcasting
-修复了根本不在工作的问题
+修复录入后不会存档的问题
+未来需要增加删减功能
+还需要放入帮助信息
 by myx"""
         filepath = os.path.join(self._info_dir, version + '.txt')
         with open(filepath, 'w') as infofile:
@@ -154,7 +158,9 @@ if __name__ == "__main__":
     notq = NotificationQueue()
     notq.load()
     notq.broadcast_default()
-    input("读取完毕！开始输入")
+    input("读取完毕！开始修改")
     notq.editor()
+    input("修改完毕！开始录入")
+    notq.enqueue(NotificationCreater().by_one())
     notq.save()
     input("进程结束！")
