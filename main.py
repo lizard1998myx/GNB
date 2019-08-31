@@ -1,4 +1,4 @@
-import re, os
+import datetime, re, os
 
 
 class Notification(dict):
@@ -139,16 +139,22 @@ class NotificationQueue(list):
                 loadfile.read()
 
     def info(self):
-        version = "GNB_V1.0_20190831"
-        description = "Full name: Group Notification Broadcasting"
-        description += "by myx"
+        version = "GNB_V1.0.1_20190831"
+        description = """Full name: Group Notification Broadcasting
+修复了根本不在工作的问题
+by myx"""
         filepath = os.path.join(self._info_dir, version + '.txt')
         with open(filepath, 'w') as infofile:
             infofile.write(description)
         with open(os.path.join(self._info_dir, 'example.txt'), "w") as examplefile:
-            examplefile.write(Notification().save())
+            examplefile.write("通知信息举例：\n" + Notification().save())
 
 
 if __name__ == "__main__":
     notq = NotificationQueue()
-    notq = load
+    notq.load()
+    notq.broadcast_default()
+    input("读取完毕！开始输入")
+    notq.editor()
+    notq.save()
+    input("进程结束！")
