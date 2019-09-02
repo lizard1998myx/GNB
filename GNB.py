@@ -1,4 +1,15 @@
-import datetime, re, os
+import datetime, re, os, send2trash
+
+
+def str2time(time_str):
+    time_lst = re.compile(r'(\d\d\d\d)-(\d\d)-(\d\d).*(\d\d):(\d\d)').search(time_str).groups()
+    time = datetime.datetime(year=int(time_lst[0]), month=int(time_lst[1]), day=int(time_lst[2]),
+                             hour=int(time_lst[3]), minute=int(time_lst[4]))
+    return time
+
+
+def time2str(time_obj):
+    return time_obj.strftime('%Y-%m-%d %a %H:%M')
 
 
 class Notification(dict):
@@ -6,7 +17,7 @@ class Notification(dict):
                  category='', description='', abstract='',
                  note='', status=''):
         dict.__init__(self)
-        self['id'] = 0
+        # self['id'] = 0
         self['source'] = source
         self['time'] = time
         self['deadline'] = deadline
@@ -15,13 +26,22 @@ class Notification(dict):
         self['abstract'] = abstract
         self['note'] = note
         self['status'] = status
-        self.translation = {'source':'发布来源', 'time':'发布时间', 'deadline':'截止时间',
-                            'category':'类型', 'description':'描述', 'abstract':'摘要',
-                            'note':'笔记', 'status':'状态'}
+        self.translation = {'source': '发布来源', 'time': '发布时间', 'deadline': '截止时间',
+                            'category': '类型', 'description': '描述', 'abstract': '摘要',
+                            'note': '笔记', 'status': '状态'}
 
     def check(self):
-        if self['abstract']=='':
+        if self['abstract'] == '':
             self['abstract'] = self['description']
+        if self['time'] == '':
+            self['time'] = time2str(datetime.datetime.now())
+        else:
+            self['time'] = time2str(str2time(self['time']))
+        if self['deadline'] == '':
+            self['deadline'] = self['time']
+        else:
+            self['deadline'] = time2str(str2time(self['deadline']))
+        return self
 
     def editor(self):
         self.check()
@@ -38,8 +58,8 @@ class Notification(dict):
     def getmessage(self, keylist, model):
         self.check()
         message = ''
-        if len(model) < len(keylist)+1:
-            for i in range(len(keylist)+1-len(model)):
+        if len(model) < len(keylist) + 1:
+            for i in range(len(keylist) + 1 - len(model)):
                 model.append("")
         for i in range(len(keylist)):
             message += model[i] + self[keylist[i]]
@@ -47,13 +67,14 @@ class Notification(dict):
         return message
 
     def save(self):
+        self.check()
         save_message = ""
         for key in self.keys():
             if key in self.translation.keys():
                 key_name = self.translation[key]
             else:
                 key_name = key
-            save_message += key_name + '{' + self[key] + '}\n'
+            save_message += key_name + '{' + str(self[key]) + '}\n'
         return save_message
 
 
@@ -63,12 +84,12 @@ class NotificationCreator():
 
     def by_one(self):
         self.notification.editor()
-        return self.notification
+        return self.notification.check()
 
     def by_text(self, text):
         for key in self.notification.keys():
             if key in self.notification.translation.keys():
-                key_pattern = '(('+ key + ')|(' + self.notification.translation[key] + '))'
+                key_pattern = '((' + key + ')|(' + self.notification.translation[key] + '))'
             else:
                 key_pattern = key
             regex = re.compile(key_pattern + r'\{(.*?)\}', re.DOTALL)
@@ -77,39 +98,68 @@ class NotificationCreator():
                 continue
             value = match.groups()[-1]
             self.notification[key] = value
-        return self.notification
-        
-    def by_msg(self, msg):
-        self.notification['category'] = re.compile(r'[\[【](.*)[\]】]').search(msg)[1]
-        self.notification['description'] = re.compile(r'[\]】](.*)').search(msg)[1].strip()
-        self.time = datetime.datetime.now().strftime('%m-%d %a %H:%M')
+        return self.notification.check()
+
+    def by_msg(self, msg):  # 读取单行输入，由于regex的原因无法换行
+        if ('[' in msg or '【' in msg) and (']' in msg or '】' in msg):
+            self.notification['category'] = re.compile(r'[\[【](.*)[\]】]').search(msg)[1]
+            self.notification['description'] = re.compile(r'[\]】](.*)').search(msg)[1].strip()
+        else:
+            self.notification['category'] = 'N/A'
+            self.notification['description'] = msg
+        return self.notification.check()
 
 
 class NotificationQueue(list):
-    def __init__(self):
+    def __init__(self, storage="storage"):
         list.__init__(self)
-        self._keylist = ['category','abstract']
-        self._model = ['【','】',""]
+        self._keylist = ['category', 'abstract']
+        self._model = ['【', '】', ""]
+        self._storage_dir = storage
         self._info_dir = "GNB_info"
-        self._save_dir = 'GNB_save'
-        self._load_dir = 'GNB_load'
+        self._index = 0
         if not os.path.exists(self._info_dir):
             os.makedirs(self._info_dir)
-        if not os.path.exists(self._save_dir):
-            os.makedirs(self._save_dir)
-        if not os.path.exists(self._load_dir):
-            os.makedirs(self._load_dir)
+        if not os.path.exists(self._storage_dir):
+            os.makedirs(self._storage_dir)
         self.info()
 
-    def enqueue(self, notification):
-        self.append(notification)
-
     def broadcast(self, keylist, model):
+        msg_total = ''
         for notification in self:
-            print(notification.getmessage(keylist=keylist, model=model))
+            msg = notification.getmessage(keylist=keylist, model=model)
+            print(msg)
+            msg_total += msg + '\n'
+        return msg_total
 
     def broadcast_default(self):
-        self.broadcast(self._keylist, self._model)
+        return self.broadcast(self._keylist, self._model)
+
+    def inrange(self, index_str):
+        if index_str == "":
+            print("未输入内容")
+            return False
+        if index_str.isdigit():
+            i = int(index_str)
+            if i in range(0, len(self)):
+                self._index = i
+                return True
+            else:
+                print("超出范围(0," + str(len(self)) + ")")
+                return False
+        else:
+            print("输入值不合法")
+            return False
+
+    def broadcastor(self, index_str=""):
+        self.show()
+        if index_str == "":
+            index_str = input("输入你想发布通知的数字编号/不发布：")
+        if self.inrange(index_str):
+            msg = self[self._index].getmessage(self._keylist, self._model)
+            print(self[self._index].save())
+            print(msg)
+            return msg
 
     def show(self):  # display the index and notifications
         if len(self) == 0:
@@ -118,71 +168,71 @@ class NotificationQueue(list):
         msg = ""
         for i in range(len(self)):
             msg += self[i].getmessage(keylist=['category', 'source', 'time'],
-                                      model=[str(i).ljust(3)+'-[' , ']', '|'])
+                                      model=[str(i).ljust(3) + '-[', ']', '|'])
             msg += '\n'
         print(msg)
         return msg
 
     def editor(self):  # edit an existing notification
         self.show()
-        index = input('输入你想修改的通知的数字编号/不修改： ')
-        if index == "":
-            return
-        elif index.isdigit():
-            i = int(index)
-            if i in range(0, len(self)):
-                self[i].editor()
-            else:
-                print("超出修改范围")
-        else:
-            print("输入值不合法")
-    
+        if self.inrange(input("输入你想修改通知的数字编号/不修改：")):
+            print(self[self._index].save())
+            self[self._index].editor()
+
     def remover(self):  # remove a notification
         self.show()
-        index = input('输入你想delete的通知的数字编号/不修改： ')
-        if index == "":
-            return
-        elif index.isdigit():
-            i = int(index)
-            if i in range(0, len(self)):
-                self.pop(i)
-            else:
-                print("超出修改范围")
-        else:
-            print("输入值不合法")
-            
-    def recent_public(self):  # select notifications published in 7 days
-        new_notq = NotificationQueue()
-        for notification in self:
-            if notification['time'] != "":
-                new_notq.enqueue(notification)
-        return now_notq
+        if self.inrange(input('输入你想删除的通知的数字编号/不删除： ')):
+            self.pop(self._index)
 
-    def save(self, dir=""):  # save files in save_dir, named by index
+    def recent_public(self):  # select notifications published in 7 days
+        new_notq = NotificationQueue('rec_p')
+        for notification in self:
+            if str2time(notification['deadline']) < datetime.datetime.now():
+                continue
+            elif str2time(notification['time']) > (datetime.datetime.now()-datetime.timedelta(days=7)):  # 如果在七天内
+                new_notq.append(notification)
+        return new_notq
+
+    def recent_deadline(self):  # select notifications published in 7 days
+        new_notq = NotificationQueue('rec_d')
+        for notification in self:
+            if str2time(notification['deadline']) > datetime.datetime.now():
+                if str2time(notification['deadline']) < (datetime.datetime.now()+datetime.timedelta(days=7)):  # 如果在七天内
+                    new_notq.append(notification)
+        return new_notq
+
+    def empty(self, dir=""):  # 清空目录下的所有文件
         if dir == "":
-            dir = self._save_dir
+            dir = self._storage_dir
+        for textfile in os.listdir(dir):
+            filepath = os.path.join(dir, textfile)
+            if '.txt' in filepath:
+                send2trash.send2trash(filepath)
+
+    def save(self, dir=""):  # 先清空，再将内容保存到仓库里，以index命名文件
+        if dir == "":
+            dir = self._storage_dir
+        self.empty(dir)
         for i in range(len(self)):
-            filepath = os.path.join(dir, str(i)+'.txt')
-            with open(filepath,'w') as savefile:
+            filepath = os.path.join(dir, str(i) + '.txt')
+            with open(filepath, 'w') as savefile:
                 savefile.write(self[i].save())
 
-    def load(self, dir=""):  # read files in load_dir
+    def load(self, dir=""):  # 读取目录信息，如果从仓库提取，则先清空自己
         if dir == "":
-            dir = self._load_dir
+            dir = self._storage_dir
+            self.__init__(self._storage_dir)
         for textfile in os.listdir(dir):
             filepath = os.path.join(dir, textfile)
             with open(filepath) as loadfile:
-                self.enqueue(NotificationCreator().by_text(loadfile.read()))
+                self.append(NotificationCreator().by_text(loadfile.read()))
+        return
 
     def info(self):
-        version = "GNB_V1.1.1_20190902"
+        version = "GNB_V2.0.0_20190902"
         description = """Full name: Group Notification Broadcasting
-修复录入后不会存档的问题
-未来需要增加删减功能
-put the data in one dir
-make another dir for history
-change log name
-use command to switch mode
+能够方便地与nonebot进行交互
+还要修改存档名
 还需要放入帮助信息
 by myx"""
         filepath = os.path.join(self._info_dir, version + '.txt')
@@ -196,22 +246,25 @@ if __name__ == "__main__":
     notq = NotificationQueue()
     notq.load()
     notq.broadcast_default()
-    input("读取完毕！")
+    print("读取完毕！")
     while True:
-        command = input('Enter command [Edit, Add, Remove, Loadall, Show, Quit]:')
-        if len(command)==0 or command[0].lower()=='q':
+        command = input('Enter command [Edit, Add, addbyMsg, Remove, Load, Show, Broadcast, Quit]:')
+        if len(command) == 0 or command[0].lower() == 'q':
             break
-        elif command[0].lower()=='e':
+        elif command[0].lower() == 'e':
             notq.editor()
-        elif command[0].lower()=='r':
+        elif command[0].lower() == 'r':
             notq.remover()
-        elif command[0].lower()=='l':
+        elif command[0].lower() == 'b':
+            notq.broadcastor()
+        elif command[0].lower() == 'l':
             notq.load()
-            notq.load('GNB_save')
-        elif command[0].lower()=='s':
+        elif command[0].lower() == 's':
             notq.show()
-        elif command[0].lower()=='a':
-            notq.enqueue(NotificationCreator().by_one())
+        elif command[0].lower() == 'a':
+            notq.append(NotificationCreator().by_one())
+        elif command[0].lower() == 'm':
+            notq.append(NotificationCreator().by_msg(input("输入通知信息：\n")))
     notq.save()
 
     input("进程结束！")
