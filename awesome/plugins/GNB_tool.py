@@ -26,13 +26,14 @@ async def GNB_record(session: CommandSession):
 @on_command(('GNB'), aliases=('通知', '通知工具箱'))  # New plugin, 统一交互窗口
 async def GNB_tool(session: CommandSession):
     if session.ctx['user_id'] not in [315887212]:  # 权限设定
-        return
-    notq = GNB.NotificationQueue()
+        QQ_groups = [230697355]
+        notq = GNB.NotificationQueue(session.ctx['user_id'])
+    elif session.ctx['user_id'] == 315887212:
+        QQ_groups = [855360487, 230697355]
+        notq = GNB.NotificationQueue()
     notq.load()
     mode = session.get('mode', prompt='请选择模式（显示/广播/编辑/删除/记录）')
     if mode in ['show', 'display', 'list', 'ls', 'view', '显示', '查看']:  # 自定义格式显示完全信息模式
-        notq = GNB.NotificationQueue()
-        notq.load()
         # await session.send(notq.broadcast_default())  # 显示所有信息，已屏蔽
         if 'format' in session.state.keys():
             await session.send(notq.show(session.state['format']))
@@ -48,25 +49,27 @@ async def GNB_tool(session: CommandSession):
             await session.send('广播内容是：\n' + msg)
             confirm = session.get('confirm', prompt='你确定【发布】吗？')
             if confirm == True or (confirm in ['确定', '是的', '是', 'Yes', 'yes', 'y', 'Y']):
-                await session.bot.send_group_msg(group_id=855360487, message=msg)
-                await session.send('已执行【发布】操作')
+                for QQ_group_id in QQ_groups:
+                    await session.bot.send_group_msg(group_id=QQ_group_id, message=msg)
+                    await session.send('已执行【发布】操作（' + str(QQ_group_id) + '）')
             else:
                 await session.send('未确认，操作取消')
     elif mode in ['edit', '编辑', '修改']:
         index = session.get('index', prompt='你想修改哪个通知呢？')
         if notq.inrange(index_str=index):
             i = int(index)
-            key = session.get('key', prompt='要修改的标签是（英文）？')
-            if key in notq[i].keys():
-                value = session.get('content', prompt='要改成的内容是？')
-                await session.send('要将第'+index+'个通知的（'+key+'）改为：\n'+value)
-                confirm = session.get('confirm', prompt='你确定【修改】吗？')
-                if confirm == True or (confirm in ['确定', '是的', '是', 'Yes', 'yes', 'y', 'Y']):
-                    notq[i][key]=value
+            key = session.get('key', prompt='要修改的标签（key）是？')
+            value = session.get('content', prompt='要改成的内容（value）是？')
+            await session.send('要将第'+index+'个通知的（'+key+'）改为：\n'+value)
+            confirm = session.get('confirm', prompt='你确定【修改】吗？')
+            if confirm == True or (confirm in ['确定', '是的', '是', 'Yes', 'yes', 'y', 'Y']):
+                if notq[i].edit(key, value):
                     notq.save()
                     await session.send('已执行【修改】操作')
                 else:
-                    await session.send('未确认，操作取消')
+                    await session.send('标签不存在，【修改】失败，请检查输入参数')
+            else:
+                await session.send('未确认，操作取消')
     elif mode in ['remove', 'rm', 'delete', '删除', '移除']:
         index = session.get('index', prompt='你想删除哪个通知呢？')
         if notq.inrange(index_str=index):
@@ -90,8 +93,9 @@ async def GNB_tool(session: CommandSession):
         await session.send('群发内容是：\n' + msg)
         confirm = session.get('confirm', prompt='你确定【发布】吗？')
         if confirm == True or (confirm in ['确定', '是的', '是', 'Yes', 'yes', 'y', 'Y']):
-            await session.bot.send_group_msg(group_id=855360487, message=msg)
-            await session.send('已执行【群发】操作')
+            for QQ_group_id in QQ_groups:
+                await session.bot.send_group_msg(group_id=QQ_group_id, message=msg)
+                await session.send('已执行【群发】操作（' + str(QQ_group_id) + '）')
         else:
             await session.send('未确认，操作取消')
     elif mode in ['rec-d', 'DDL', 'soon', '即将截止', '截止', '临近']:  # 自定义格式，近七天截止的通知
@@ -102,12 +106,13 @@ async def GNB_tool(session: CommandSession):
         await session.send('群发内容是：\n' + msg)
         confirm = session.get('confirm', prompt='你确定【发布】吗？')
         if confirm == True or (confirm in ['确定', '是的', '是', 'Yes', 'yes', 'y', 'Y']):
-            await session.bot.send_group_msg(group_id=855360487, message=msg)
-            await session.send('已执行【群发】操作')
+            for QQ_group_id in QQ_groups:
+                await session.bot.send_group_msg(group_id=QQ_group_id, message=msg)
+                await session.send('已执行【群发】操作（' + str(QQ_group_id) + '）')
         else:
             await session.send('未确认，操作取消')
     elif mode in ['help', 'h', '帮助', '说明']:
-        help_info = """Group Notification Broadcasting 控制中心 V2.1.1
+        help_info = """Group Notification Broadcasting 控制中心 V2.3.0
 【使用指南】可以先启用工具箱，按提示逐步操作。也可以在初始命令中输入参数，空格分开。
 【可用参数】
 1.“--mode”模式设定，可选ls、rm、send、edit、add、recent、soon、help等
@@ -123,10 +128,14 @@ async def GNB_tool(session: CommandSession):
 4.删除信息（'remove', 'rm', 'delete', '删除', '移除'），给定指标，删除指定通知
 5.简易录入信息（'record', 'add', '加入', '记录', '录入'），简单地录入信息，只修改类型和描述，无法换行
 6.群发最近发布的通知（'rec-p', 'recent', '最近发布', '最近'），群发近七天发布且未截止的通知，支持自定义格式
-7.群发即将结束的通知（'rec-d', 'DDL', 'soon', '即将截止', '截止', '临近'），群发近七天截止的通知，支持自定义格式"""
+7.群发即将结束的通知（'rec-d', 'DDL', 'soon', '即将截止', '截止', '临近'），群发近七天截止的通知，支持自定义格式
+
+测试用群：230697355
+by mengyuxi16@mails.ucas.ac.cn"""
         await session.send(help_info)
     else:
         await session.send('无效模式，尝试输入GNB --help查看帮助')
+
 
 @GNB_tool.args_parser
 async def _(session: CommandSession):
