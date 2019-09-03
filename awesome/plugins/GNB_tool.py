@@ -1,4 +1,6 @@
 from nonebot import on_command, CommandSession
+from nonebot import on_natural_language, NLPSession, IntentCommand
+from jieba import posseg
 import GNB, re
 
 
@@ -33,12 +35,14 @@ async def GNB_tool(session: CommandSession):
         notq = GNB.NotificationQueue()
     notq.load()
     mode = session.get('mode', prompt='请选择模式（显示/广播/编辑/删除/记录）')
+
     if mode in ['show', 'display', 'list', 'ls', 'view', '显示', '查看']:  # 自定义格式显示完全信息模式
         # await session.send(notq.broadcast_default())  # 显示所有信息，已屏蔽
         if 'format' in session.state.keys():
             await session.send(notq.show(session.state['format']))
         else:
             await session.send(notq.show())
+
     elif mode in ['broadcast', 'send', '广播', '发布']:  # 自定义格式发布单个通知
         index = session.get('index', prompt='你想发布哪个通知呢？')
         if notq.inrange(index_str=index):
@@ -54,6 +58,7 @@ async def GNB_tool(session: CommandSession):
                     await session.send('已执行【发布】操作（' + str(QQ_group_id) + '）')
             else:
                 await session.send('未确认，操作取消')
+
     elif mode in ['edit', '编辑', '修改']:
         index = session.get('index', prompt='你想修改哪个通知呢？')
         if notq.inrange(index_str=index):
@@ -70,9 +75,11 @@ async def GNB_tool(session: CommandSession):
                     await session.send('标签不存在，【修改】失败，请检查输入参数')
             else:
                 await session.send('未确认，操作取消')
+
     elif mode in ['remove', 'rm', 'delete', '删除', '移除']:
         index = session.get('index', prompt='你想删除哪个通知呢？')
         if notq.inrange(index_str=index):
+            await session.send('即将删除第' + index + '个通知：\n' + notq.broadcastor(index))
             confirm = session.get('confirm', prompt='你确定【删除】吗？')
             if confirm == True or (confirm in ['确定', '是的', '是', 'Yes', 'yes', 'y', 'Y']):
                 notq.pop(int(index))
@@ -80,11 +87,15 @@ async def GNB_tool(session: CommandSession):
                 await session.send('已执行【删除】操作')
             else:
                 await session.send('未确认，操作取消')
+        else:
+            await session.send('超出范围，未删除')
+
     elif mode in ['record', 'add', '加入', '记录', '录入']:  # 简单录入模式
         rec_msg = session.get('content', prompt='要输入的内容是？')
         notq.append(GNB.NotificationCreator().by_msg(rec_msg))
         notq.save()
         await session.send('已执行【录入】操作')
+
     elif mode in ['rec-p', 'recent', '最近发布', '最近']:  # 自定义格式，近七天发布的通知
         if 'format' in session.state.keys():
             msg = '==近七天发布的通知==\n' + notq.recent_public().broadcast(session.state['format'])
@@ -98,6 +109,7 @@ async def GNB_tool(session: CommandSession):
                 await session.send('已执行【群发】操作（' + str(QQ_group_id) + '）')
         else:
             await session.send('未确认，操作取消')
+
     elif mode in ['rec-d', 'DDL', 'soon', '即将截止', '截止', '临近']:  # 自定义格式，近七天截止的通知
         if 'format' in session.state.keys():
             msg = '==七天内截止的通知==\n' + notq.recent_public().broadcast(session.state['format'])
@@ -111,6 +123,7 @@ async def GNB_tool(session: CommandSession):
                 await session.send('已执行【群发】操作（' + str(QQ_group_id) + '）')
         else:
             await session.send('未确认，操作取消')
+
     elif mode in ['help', 'h', '帮助', '说明']:
         help_info = """Group Notification Broadcasting 控制中心 V2.3.0
 【使用指南】可以先启用工具箱，按提示逐步操作。也可以在初始命令中输入参数，空格分开。
@@ -176,3 +189,77 @@ async def _(session: CommandSession):
 
     # 如果当前正在向用户询问更多信息，且用户输入有效，则放入会话状态
     session.state[session.current_key] = stripped_arg
+
+
+# on_natural_language 装饰器将函数声明为一个自然语言处理器
+# keywords 表示需要响应的关键词，类型为任意可迭代对象，元素类型为 str
+# 如果不传入 keywords，则响应所有没有被当作命令处理的消息
+@on_natural_language(keywords=['GNB', '通知', '通知工具箱'])
+async def _(session: NLPSession):
+    # 去掉消息首尾的空白符
+    stripped_msg = session.msg_text.strip()
+    # 对消息进行分词和词性标注
+    words = posseg.lcut(stripped_msg)
+
+    arg = ''
+    # 遍历 posseg.lcut 返回的列表
+    for word in words:
+        # 每个元素是一个 pair 对象，包含 word 和 flag 两个属性，分别表示词和词性
+        if word.flag == 'm':
+            # m 词性表示量词
+            regex = re.compile(r'(\d)+')
+            if regex.search(word.word):  # 如果搜到了数字
+                arg += ' ' + regex.search(word.word).group()
+            elif '零' in word.word and chinese2digits(word.word)==0:
+                arg += ' 0'
+            elif chinese2digits(word.word)!=0:
+                arg += ' ' + str(chinese2digits(word.word))
+        if word.flag in ['v', 'n']:
+            # n,v分别表示名词和动词
+            if word.word in ['显示', '查看']:
+                arg += ' --show'
+            elif word.word in ['广播', '发布']:
+                arg += ' --broadcast'
+            elif word.word in ['编辑', '修改']:
+                arg += ' --edit'
+            elif word.word in ['删除', '移除']:
+                arg += ' --remove'
+            elif word.word in ['加入', '记录', '录入']:
+                arg += ' --record'
+            elif word.word in ['最近发布', '最近']:
+                arg += ' --rec-p'
+            elif word.word in ['即将截止', '截止', '临近']:
+                arg += ' --rec-d'
+            elif word.word in ['帮助', '说明']:
+                arg += ' --help'
+
+    # 返回意图命令，前两个参数必填，分别表示置信度和意图命令名
+    return IntentCommand(90.0, 'GNB', current_arg=arg)
+
+
+def chinese2digits(uchars_chinese):
+    common_used_numerals_tmp = {'零': 0, '一': 1, '二': 2, '两': 2, '三': 3, '四': 4,
+                                '五': 5, '六': 6, '七': 7, '八': 8, '九': 9, '十': 10,
+                                '百': 100, '千': 1000, '万': 10000, '亿': 100000000}
+    # common_used_numerals= dict(zip(common_used_numerals_tmp.values(), common_used_numerals_tmp.keys())) #反转
+    total = 0
+    r = 1  # 表示单位：个十百千...
+    for i in range(len(uchars_chinese) - 1, -1, -1):
+        #print(uchars_chinese[i])
+        if uchars_chinese[i] in common_used_numerals_tmp.keys():
+            val = common_used_numerals_tmp.get(uchars_chinese[i])
+            if val >= 10 and i == 0:  # 应对 十三 十四 十*之类
+                if val > r:
+                    r = val
+                    total = total + val
+                else:
+                    r = r * val
+                    # total =total + r * x
+            elif val >= 10:
+                if val > r:
+                    r = val
+                else:
+                    r = r * val
+            else:
+                total = total + r * val
+    return total
