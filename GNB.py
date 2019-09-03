@@ -29,7 +29,6 @@ class Notification(dict):
                  category='', description='', abstract='',
                  note='', status=''):
         dict.__init__(self)
-        # self['id'] = 0
         self['source'] = source
         self['time'] = time
         self['deadline'] = deadline
@@ -88,6 +87,21 @@ class Notification(dict):
                 for abbr in ABBREVIATIONS[key]:
                     format_string = format_string.replace('%' + abbr, value)
         return format_string
+
+    def edit(self, key_string, value):
+        for actual_key in self.keys():
+            if actual_key in TRANSLATION.keys():
+                if key_string == actual_key:
+                    break
+                elif key_string == TRANSLATION[actual_key]:
+                    key_string = actual_key
+                elif key_string in ABBREVIATIONS[actual_key]:
+                    key_string = actual_key
+        if key_string in self.keys():
+            self[key_string] = value
+            return True
+        else:
+            return False
 
 
 class NotificationCreator():
@@ -214,7 +228,7 @@ class NotificationQueue(list):
                     new_notq.append(notification)
         return new_notq
 
-    def empty(self, dir=""):  # 清空目录下的所有文件
+    def empty(self, dir=""):  # 清空目录下的所有文件，这里用到回收站，比较浪费时间，可以改成移动到另一个文件夹
         if dir == "":
             dir = self._storage_dir
         for textfile in os.listdir(dir):
@@ -242,9 +256,11 @@ class NotificationQueue(list):
         return
 
     def info(self):  # 记录信息
-        version = "GNB_V2.2.1_20190903"
+        version = "GNB_V2.3.0_20190903"
         description = """Full name: Group Notification Broadcasting
 修复bug，完美实现功能
+加入其他账号工作功能
+增强编辑功能
 能够方便地与nonebot进行交互
 使用格式化输出，向下兼容
 完全实现QQ命令交互
