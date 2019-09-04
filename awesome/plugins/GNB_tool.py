@@ -37,13 +37,18 @@ async def GNB_tool(session: CommandSession):
     mode = session.get('mode', prompt='请选择模式（显示/广播/编辑/删除/记录）')
 
     if mode in ['show', 'display', 'list', 'ls', 'view', '显示', '查看']:  # 自定义格式显示完全信息模式
-        # await session.send(notq.broadcast_default())  # 显示所有信息，已屏蔽
-        if 'format' in session.state.keys():
-            await session.send(notq.show(session.state['format']))
+        # await session.send(notq.broadcast())  # 显示所有信息，已屏蔽
+        print(session.state)
+        if 'index' in session.state.keys():
+            index = session.state['index']
         else:
-            await session.send(notq.show())
+            index = '-1'
+        if 'format' in session.state.keys():
+            await session.send(notq.show(index=index, format_string=session.state['format']))
+        else:
+            await session.send(notq.show(index=index))
 
-    elif mode in ['broadcast', 'send', '广播', '发布']:  # 自定义格式发布单个通知
+    elif mode in ['broadcast', 'send', 'post', '广播', '发布']:  # 自定义格式发布单个通知
         index = session.get('index', prompt='你想发布哪个通知呢？')
         if notq.inrange(index_str=index):
             if 'format' in session.state.keys():
@@ -136,7 +141,7 @@ async def GNB_tool(session: CommandSession):
 6.有自定义参数时，不符合上述格式的参数会被视为内容（只保留一个），在修改、录入时启用
 【模式说明】
 1.查看全部（'show', 'display', 'list', 'ls', 'view', '显示', '查看'），支持自定义格式
-2.群发指定信息（'broadcast', 'send', '广播', '发布'），自定义格式发布特定通知
+2.群发指定信息（'broadcast', 'send', 'post', '广播', '发布'），自定义格式发布特定通知
 3.编辑信息（'edit', '编辑', '修改'），给定指标、键、值信息，修改通知中的特定信息，注意格式
 4.删除信息（'remove', 'rm', 'delete', '删除', '移除'），给定指标，删除指定通知
 5.简易录入信息（'record', 'add', '加入', '记录', '录入'），简单地录入信息，只修改类型和描述，无法换行
