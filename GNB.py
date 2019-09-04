@@ -8,7 +8,7 @@ FORMAT_SAVE = '发布来源{%source}\n发布时间{%time}\n截止时间{%deadlin
 TRANSLATION = {'source': '发布来源', 'time': '发布时间', 'deadline': '截止时间',
                'category': '类型', 'description': '描述', 'abstract': '摘要',
                'note': '笔记', 'status': '状态'}
-ABBREVIATIONS = {'source': ('S', 'cs'), 'time': ('T', ), 'deadline': ('DDL',),
+ABBREVIATIONS = {'source': ('S', 'cs'), 'time': ('T', 't'), 'deadline': ('DDL', 'ddl'),
                  'category': ('cat',), 'description': ('D', 'des'),
                  'abstract': ('A', 'abs',), 'note': ('N',), 'status': ('sta',)}
 
@@ -47,6 +47,24 @@ class Notification(dict):
             self['time'] = time2str(str2time(self['time']))
         if self['deadline'] == '':
             self['deadline'] = self['time']
+        elif '+' in self['deadline']:
+            d, h, m = 0, 0, 0
+            if re.compile(r'(\d+)[dD]').search(self['deadline']):
+                d = int(re.compile(r'(\d+)[dD]').search(self['deadline']).group(1))
+            if re.compile(r'(\d+)[hH]').search(self['deadline']):
+                h = int(re.compile(r'(\d+)[hH]').search(self['deadline']).group(1))
+            if re.compile(r'(\d+)[mM]').search(self['deadline']):
+                m = int(re.compile(r'(\d+)[mM]').search(self['deadline']).group(1))
+            self['deadline'] = time2str(str2time(self['time']) + datetime.timedelta(days=d, hours=h, minutes=m))
+        elif '--' in self['deadline']:
+            d, h, m = 0, 0, 0
+            if re.compile(r'(\d+)[dD]').search(self['deadline']):
+                d = int(re.compile(r'(\d+)[dD]').search(self['deadline']).group(1))
+            if re.compile(r'(\d+)[hH]').search(self['deadline']):
+                h = int(re.compile(r'(\d+)[hH]').search(self['deadline']).group(1))
+            if re.compile(r'(\d+)[mM]').search(self['deadline']):
+                m = int(re.compile(r'(\d+)[mM]').search(self['deadline']).group(1))
+            self['deadline'] = time2str(str2time(self['time']) + datetime.timedelta(days=d, hours=h, minutes=m))
         else:
             self['deadline'] = time2str(str2time(self['deadline']))
         return self
@@ -186,10 +204,14 @@ class NotificationQueue(list):
             print(msg)
             return msg
 
-    def show(self, format_string=FORMAT_SHOW):  # display the index and notifications
+    def show(self, index='-1', format_string=FORMAT_SHOW):  # display the index and notifications
         if len(self) == 0:
             print("队列为空")
             return "队列为空"
+        if index != '-1' and self.inrange(str(index)):
+            if format_string==FORMAT_SHOW:
+                format_string = FORMAT_SAVE
+            return self[int(index)].format_output(format_string)
         msg = ""
         for i in range(len(self)):
             msg += self[i].format_output(format_string)\
@@ -256,8 +278,9 @@ class NotificationQueue(list):
         return
 
     def info(self):  # 记录信息
-        version = "GNB_V2.3.0_20190903"
+        version = "GNB_V2.4.0_20190904"
         description = """Full name: Group Notification Broadcasting
+2.4.0 - 控制显示单个通知全部信息，可以用时间间隔修改DDL
 修复bug，完美实现功能
 加入其他账号工作功能
 增强编辑功能
