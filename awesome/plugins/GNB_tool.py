@@ -4,27 +4,6 @@ from jieba import posseg
 import GNB, re
 
 
-@on_command('GNB_broadcast', aliases=('发布', '公告', '发布公告'))  # OLD plugin, 交互式发布消息
-async def GNB_broadcast(session: CommandSession):
-    notq = GNB.NotificationQueue()
-    notq.load()
-    await session.send(notq.broadcast_default())
-    await session.send(notq.show())
-    index = session.get('index', prompt='你想发布哪个通知呢？')
-    await session.bot.send_group_msg(group_id=855360487, message=notq.broadcastor(index))
-
-
-@on_command('GNB_record', aliases=('记录', ))  # OLD plugin, 交互式记录信息
-async def GNB_record(session: CommandSession):
-    notq = GNB.NotificationQueue()
-    notq.load()
-    msg = session.get('msg', prompt='您想记录的通知信息是？')
-    notq.append(GNB.NotificationCreator().by_msg(msg))
-    notq.save()
-    await session.send(notq.broadcast_default())
-    await session.send(notq.show())
-
-
 @on_command(('GNB'), aliases=('通知', '通知工具箱'))  # New plugin, 统一交互窗口
 async def GNB_tool(session: CommandSession):
     if session.ctx['user_id'] not in [315887212]:  # 权限设定
@@ -130,15 +109,15 @@ async def GNB_tool(session: CommandSession):
             await session.send('未确认，操作取消')
 
     elif mode in ['help', 'h', '帮助', '说明']:
-        help_info = """Group Notification Broadcasting 控制中心 V2.3.0
+        help_info = """Group Notification Broadcasting 控制中心 V2.4.1
 【使用指南】可以先启用工具箱，按提示逐步操作。也可以在初始命令中输入参数，空格分开。
 【可用参数】
 1.“--mode”模式设定，可选ls、rm、send、edit、add、recent、soon、help等
 2.“纯数字”指标设定，在发布、编辑和删除单个通知时启用
 3.“%key”键值设定，在编辑通知时启用，格式串中键值也是这样定义的（但是格式串里可以用中文和缩写）
 4.“yes”或“-y”确定值设定，不建议启用，启用时将跳过发布、修改信息的确认环节
-5.“##…##”格式串设定，在发布和显示信息使启用（允许中间插入空格）
-6.有自定义参数时，不符合上述格式的参数会被视为内容（只保留一个），在修改、录入时启用
+5.“##…##”格式串设定，在发布和显示信息使启用（允许中间插入空格，\\n表示换行符）
+6.有自定义参数时，不符合上述格式的参数会被视为内容（会被空格分开，且只保留一个），在修改、录入时启用
 【模式说明】
 1.查看全部（'show', 'display', 'list', 'ls', 'view', '显示', '查看'），支持自定义格式
 2.群发指定信息（'broadcast', 'send', 'post', '广播', '发布'），自定义格式发布特定通知
@@ -199,7 +178,7 @@ async def _(session: CommandSession):
 # on_natural_language 装饰器将函数声明为一个自然语言处理器
 # keywords 表示需要响应的关键词，类型为任意可迭代对象，元素类型为 str
 # 如果不传入 keywords，则响应所有没有被当作命令处理的消息
-@on_natural_language(keywords=['GNB', '通知', '通知工具箱'])
+@on_natural_language(keywords=['GNB', '通知', '通知工具箱', '工具箱'])
 async def _(session: NLPSession):
     # 去掉消息首尾的空白符
     stripped_msg = session.msg_text.strip()

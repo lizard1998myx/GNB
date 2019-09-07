@@ -1,6 +1,7 @@
 from nonebot import on_command, CommandSession
 from nonebot import on_natural_language, NLPSession, IntentCommand
-from weather_source_bs4 import Beijing_weather
+from weather_source_bs4 import Beijing_weather, Beijing_weather_Morning, Beijing_weather_Night
+import nonebot
 
 
 @on_command('send_msg', aliases=('群发',))
@@ -12,10 +13,27 @@ async def send_msg(session: CommandSession):
         #获取qq群的信息
         group_list = await session.bot.get_group_list()
         # group_list = [{'group_id': 230697355, 'group_name': 'Testing'}]
+        weather = Beijing_weather()
+        weather_m = Beijing_weather_Morning()
+        weather_n = Beijing_weather_Night()
+        #session.get('manual', prompt='是否手动发送天气？')
+        #if session.state['manual'] == '是':
+        if False:
+            bot = nonebot.get_bot()
+            msg = '这里为大家准备了晨间的天气预报o(*￣▽￣*)ブ\n'
+            print(msg)
+            await bot.send_group_msg(group_id=625122280, message='天文系的扛把子们早上好！' + msg)
+            await bot.send_group_msg(group_id=625122280, message=weather_m)
+            await bot.send_group_msg(group_id=855360487, message='天文和环科的小伙伴们早~ ' + msg)
+            await bot.send_group_msg(group_id=855360487, message=weather_m)
+            await bot.send_group_msg(group_id=519698575, message='小伙伴们早上好！' + msg)
+            await bot.send_group_msg(group_id=519698575, message=weather_m)
         for group in group_list:
             # 对某个qq群进行发送信息
             if group['group_id']==230697355:
-                await session.bot.send_group_msg(group_id=group['group_id'], message=Beijing_weather())
+                await session.bot.send_group_msg(group_id=group['group_id'], message=weather)
+                await session.bot.send_group_msg(group_id=group['group_id'], message=weather_m)
+                await session.bot.send_group_msg(group_id=group['group_id'], message=weather_n)
             elif group['group_id']==625122280:
                 continue
                 await session.bot.send_group_msg(group_id=group['group_id'], message='hello world')

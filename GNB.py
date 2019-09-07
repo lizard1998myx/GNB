@@ -10,7 +10,7 @@ TRANSLATION = {'source': '发布来源', 'time': '发布时间', 'deadline': '�
                'note': '笔记', 'status': '状态'}
 ABBREVIATIONS = {'source': ('S', 'cs'), 'time': ('T', 't'), 'deadline': ('DDL', 'ddl'),
                  'category': ('cat',), 'description': ('D', 'des'),
-                 'abstract': ('A', 'abs',), 'note': ('N',), 'status': ('sta',)}
+                 'abstract': ('A', 'abs',), 'note': ('no',), 'status': ('sta',)}
 
 
 def str2time(time_str):
@@ -104,6 +104,7 @@ class Notification(dict):
             if key in ABBREVIATIONS.keys():
                 for abbr in ABBREVIATIONS[key]:
                     format_string = format_string.replace('%' + abbr, value)
+        format_string = format_string.replace(r'\n', '\n')  # 自动转换换行符
         return format_string
 
     def edit(self, key_string, value):
@@ -145,6 +146,9 @@ class NotificationCreator():
         return self.notification.check()
 
     def by_msg(self, msg):  # 读取单行输入，由于regex的原因无法换行
+        if re.compile(r'@([^\s]+)').search(msg):
+            self.notification['source'] = re.compile(r'@(\S+)').search(msg).group(1)
+            msg = msg.replace(re.compile(r'\s*@(\S+)').search(msg).group(), "")
         if ('[' in msg or '【' in msg) and (']' in msg or '】' in msg):
             self.notification['category'] = re.compile(r'[\[【](.*)[\]】]').search(msg)[1]
             self.notification['description'] = re.compile(r'[\]】](.*)').search(msg)[1].strip()
@@ -278,8 +282,9 @@ class NotificationQueue(list):
         return
 
     def info(self):  # 记录信息
-        version = "GNB_V2.4.0_20190904"
+        version = "GNB_V2.4.1_20190904"
         description = """Full name: Group Notification Broadcasting
+2.4.1 - 优化信息录入，可以直接录入来源，格式串支持换行符
 2.4.0 - 控制显示单个通知全部信息，可以用时间间隔修改DDL
 修复bug，完美实现功能
 加入其他账号工作功能

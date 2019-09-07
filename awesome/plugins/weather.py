@@ -2,6 +2,7 @@ from nonebot import on_command, CommandSession
 from nonebot import on_natural_language, NLPSession, IntentCommand
 from jieba import posseg
 import requests
+from weather_source_bs4 import Beijing_weather
 
 
 # on_command 装饰器将函数声明为一个命令处理器
@@ -44,16 +45,21 @@ async def get_weather_of_city(city: str) -> str:
     # 这里简单返回一个字符串
     # 实际应用中，这里应该调用返回真实数据的天气 API，并拼接成天气预报内容
     # 已知问题，默认会使用IP所在地的天气
+    if city == '北京':
+        return Beijing_weather()
     r = requests.get('https://www.tianqiapi.com/api/?version=v1&city=' + city + '&appid=1001&appsecret=5578')
-    today_data = r.json()['data'][0]
-    msg = today_data['wea'] + '\n'
-    msg += today_data['tem'] + ' (' + today_data['tem2'] + '-' + today_data['tem1'] + ')\n'
-    msg += 'AQI：' + today_data['air_level'] + ' (' + str(today_data['air']) + ')\n'
-    for index in today_data['index']:
-        if index['title'] in ['紫外线指数', '穿衣指数', '空气污染扩散指数']:
-            msg += index['title'] + ' (' + str(index['level']) + ') ' + index['desc'] + '\n'
-    msg += r.json()['update_time']
-    return city + '的天气 ' + msg
+    try:
+        today_data = r.json()['data'][0]
+        msg = today_data['wea'] + '\n'
+        msg += today_data['tem'] + ' (' + today_data['tem2'] + '-' + today_data['tem1'] + ')\n'
+        msg += 'AQI：' + today_data['air_level'] + ' (' + str(today_data['air']) + ')\n'
+        for index in today_data['index']:
+            if index['title'] in ['紫外线指数', '穿衣指数', '空气污染扩散指数']:
+                msg += index['title'] + ' (' + str(index['level']) + ') ' + index['desc'] + '\n'
+        msg += r.json()['update_time']
+        return city + '的天气 ' + msg
+    except KeyError:
+        return '与天气网连接断开，获取失败'
 
 
 # on_natural_language 装饰器将函数声明为一个自然语言处理器
