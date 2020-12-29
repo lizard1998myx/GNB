@@ -1,17 +1,13 @@
 import nonebot
-import config
-import os
-
-
-def main():
-    nonebot.init(config)
-    nonebot.load_builtin_plugins()
-    nonebot.load_plugins(
-        os.path.join(os.path.dirname(__file__), 'awesome', 'plugins'),
-        'awesome.plugins'
-    )
-    nonebot.run()
+from os import path
+import GNB_nonebot.config as config
 
 
 if __name__ == '__main__':
-    main()
+    nonebot.init(config)
+    nonebot.load_builtin_plugins()
+    nonebot.load_plugins(
+        path.join(path.dirname(__file__), 'awesome', 'plugins'),
+        'awesome.plugins'
+    )
+    nonebot.run()

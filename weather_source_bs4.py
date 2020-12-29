@@ -78,11 +78,13 @@ def Beijing_weather_Morning():  # 晨间天气预报，增加各类指数
     msg_i4 = tag_i_info(tag_i4) + '\n'
     tag_i5 = tag_i4.find_next('span')  # 洗车指数
     msg_i5 = ''
+    """
     tag_i6 = tag_i5.find_next('span')  # 空气污染扩散指数
     msg_i6 = tag_i_info(tag_i6)
+    """
 
     return Beijing_weather().replace('天气预报', '晨间天气预报') + '\n\n' \
-           + msg_i0 + msg_i1 + msg_i2 + msg_i3 + msg_i4 + msg_i5 + msg_i6
+           + msg_i0 + msg_i1 + msg_i2 + msg_i3 + msg_i4 + msg_i5
 
 
 def Beijing_weather_Night():  # 晚间七天天气预报
