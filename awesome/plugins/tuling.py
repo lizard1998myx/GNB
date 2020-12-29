@@ -1,7 +1,7 @@
 import json
 from typing import Optional
 
-import aiohttp
+import aiohttp, re
 from aiocqhttp.message import escape
 from nonebot import on_command, CommandSession
 from nonebot import on_natural_language, NLPSession, IntentCommand
@@ -16,14 +16,30 @@ EXPR_DONT_UNDERSTAND = (
 )
 
 
+LIMITATION_LIST = {315887212: 1e3, 374520947: 1e3, 1452366604: 5}
+
+
 # 注册一个仅内部使用的命令，不需要 aliases
 @on_command('tuling')
 async def tuling(session: CommandSession):
     # 获取可选参数，这里如果没有 message 参数，命令不会被中断，message 变量会是 None
     message = session.state.get('message')
+    user = session.ctx['user_id']
+    if user in LIMITATION_LIST.keys():
+        if LIMITATION_LIST[user] > 0:
+            LIMITATION_LIST[user] = LIMITATION_LIST[user] - 1
+        else:
+            await session.send('[debug] maximun number of requests reached for %i' % user)
+            return
+    else:
+        LIMITATION_LIST[user] = 20
 
     # 通过封装的函数获取图灵机器人的回复
     reply = await call_tuling_api(session, message)
+    match = re.search(pattern=r'http[:/\.\w]*', string=reply)
+    if match is not None:
+        reply = reply.replace(match.group(), 'https://www.ucas.ac.cn/')
+    # await session.send('[debug] response via Turing api]')
     if reply:
         # 如果调用图灵机器人成功，得到了回复，则转义之后发送给用户
         # 转义会把消息中的某些特殊字符做转换，以避免 酷Q 将它们理解为 CQ 码
@@ -31,7 +47,7 @@ async def tuling(session: CommandSession):
     else:
         # 如果调用失败，或者它返回的内容我们目前处理不了，发送无法获取图灵回复时的「表达」
         # 这里的 render_expression() 函数会将一个「表达」渲染成一个字符串消息
-        await session.send(render_expression(EXPR_DONT_UNDERSTAND))
+        await session.send('[debug] %s' % render_expression(EXPR_DONT_UNDERSTAND))
 
 
 @on_natural_language
@@ -39,7 +55,7 @@ async def _(session: NLPSession):
     # 以置信度 60.0 返回 tuling 命令
     # 确保任何消息都在且仅在其它自然语言处理器无法理解的时候使用 tuling 命令
     # return IntentCommand(60.0, 'tuling', args={'message': session.msg_text})
-    return IntentCommand(60.0, 'tester', args={'message': session.msg_text})
+    return IntentCommand(60.0, 'tuling', args={'message': session.msg_text})
 
 
 async def call_tuling_api(session: CommandSession, text: str) -> Optional[str]:

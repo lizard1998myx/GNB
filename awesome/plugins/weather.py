@@ -2,7 +2,7 @@ from nonebot import on_command, CommandSession
 from nonebot import on_natural_language, NLPSession, IntentCommand
 from jieba import posseg
 import requests
-from weather_source_bs4 import Beijing_weather
+from GNB_nonebot.weather_source_bs4 import Beijing_weather
 
 
 # on_command 装饰器将函数声明为一个命令处理器
